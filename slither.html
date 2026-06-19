@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slither.io Clone Prototype</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a2e; /* Dark background */
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Resize canvas to fill the screen
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Track mouse position
+        let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+
+        window.addEventListener('mousemove', (event) => {
+            mouse.x = event.clientX;
+            mouse.y = event.clientY;
+        });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // --- CLASSES ---
+
+        class Snake {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 15;
+                this.speed = 4;
+                this.color = '#0f3460'; // Main body color
+                this.history = [];      // Stores previous positions for the body to follow
+                this.length = 15;       // Initial length
+                this.spacing = 4;       // How far apart body segments are drawn
+            }
+
+            draw() {
+                // Draw the body segments (drawn from end to front to layer properly)
+                for (let i = this.history.length - 1; i >= 0; i--) {
+                    // Only draw segments at specific intervals based on spacing
+                    if (i % this.spacing === 0) { 
+                        ctx.beginPath();
+                        ctx.arc(this.history[i].x, this.history[i].y, this.radius, 0, Math.PI * 2);
+                        // Create a cool gradient effect for the body
+                        ctx.fillStyle = `hsl(280, 100%, ${40 + (i / this.history.length) * 20}%)`; 
+                        ctx.fill();
+                        ctx.strokeStyle = '#000';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                        ctx.closePath();
+                    }
+                }
+
+                // Draw the head
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius + 2, 0, Math.PI * 2);
+                ctx.fillStyle = '#e94560'; // Head color
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.closePath();
+            }
+
+            update() {
+                // Calculate the angle between the snake's head and the mouse cursor
+                const dx = mouse.x - this.x;
+                const dy = mouse.y - this.y;
+                const angle = Math.atan2(dy, dx);
+
+                // Move the head in the direction of the mouse
+                this.x += Math.cos(angle) * this.speed;
+                this.y += Math.sin(angle) * this.speed;
+
+                // Record the head's position at the beginning of the history array
+                this.history.unshift({ x: this.x, y: this.y });
+
+                // If the history gets longer than the snake's size, remove the oldest position (tail)
+                if (this.history.length > this.length * this.spacing) {
+                    this.history.pop();
+                }
+            }
+        }
+
+        class Food {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.radius = 4 + Math.random() * 4; // Random size between 4 and 8
+                this.color = `hsl(${Math.random() * 360}, 100%, 60%)`; // Random bright color
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                // Glowing effect
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.shadowBlur = 0; // Reset shadow for other elements
+                ctx.closePath();
+            }
+        }
+
+        // --- GAME SETUP ---
+
+        const player = new Snake(canvas.width / 2, canvas.height / 2);
+        const foods = [];
+        const maxFood = 150;
+
+        // Populate initial food
+        for (let i = 0; i < maxFood; i++) {
+            foods.push(new Food());
+        }
+
+        // --- GAME LOOP ---
+
+        function animate() {
+            // Clears the screen for the next frame
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Handle Food and Collisions
+            for (let i = foods.length - 1; i >= 0; i--) {
+                foods[i].draw();
+
+                // Calculate distance between snake head and this food particle
+                const dx = player.x - foods[i].x;
+                const dy = player.y - foods[i].y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // If distance is less than their combined radii, it's a collision (eat)
+                if (distance < player.radius + foods[i].radius) {
+                    foods.splice(i, 1);       // Remove the eaten food
+                    player.length += 1;       // Grow the snake
+                    foods.push(new Food());   // Spawn a new food to replace it
+                }
+            }
+
+            // Update and draw the player snake
+            player.update();
+            player.draw();
+
+            // Call the next frame
+            requestAnimationFrame(animate);
+        }
+
+        // Start the game loop
+        animate();
+    </script>
+</body>
+</html>
